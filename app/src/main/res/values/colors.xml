@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#4F46E5</color>
+    <color name="primary_dark">#3730A3</color>
+    <color name="primary_light">#EEF2FF</color>
+    <color name="accent">#06B6D4</color>
+
+    <!-- Backgrounds -->
+    <color name="window_background">#F8FAFC</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="divider_color">#E2E8F0</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="text_hint">#94A3B8</color>
+
+    <!-- Status Badges & Accents -->
+    <color name="status_todo_text">#B45309</color>
+    <color name="status_todo_bg">#FEF3C7</color>
+    <color name="status_todo_dot">#F59E0B</color>
+
+    <color name="status_progress_text">#1D4ED8</color>
+    <color name="status_progress_bg">#DBEAFE</color>
+    <color name="status_progress_dot">#3B82F6</color>
+
+    <color name="status_done_text">#047857</color>
+    <color name="status_done_bg">#D1FAE5</color>
+    <color name="status_done_dot">#10B981</color>
+
+    <!-- Categories -->
+    <color name="cat_visita">#8B5CF6</color>
+    <color name="cat_reporte">#0284C7</color>
+    <color name="cat_ventas">#059669</color>
+    <color name="cat_urgente">#DC2626</color>
+    <color name="cat_general">#64748B</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="danger">#EF4444</color>
+</resources>

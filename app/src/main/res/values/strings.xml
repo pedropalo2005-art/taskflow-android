@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TaskFlow Pro</string>
+    <string name="tab_todo">Por Hacer</string>
+    <string name="tab_in_progress">En Curso</string>
+    <string name="tab_done">Hecho</string>
+
+    <string name="btn_add_task">Nueva Tarea</string>
+    <string name="btn_voice_input">Dictar Tarea</string>
+    <string name="hint_task_title">Ej: Visitar tienda Blv. Morazán</string>
+    <string name="hint_task_desc">Detalles o notas adicionales...</string>
+
+    <string name="title_add_dialog">Nueva Tarea Pendiente</string>
+    <string name="title_edit_dialog">Editar Tarea</string>
+    <string name="btn_save">Guardar Tarea</string>
+    <string name="btn_cancel">Cancelar</string>
+
+    <!-- Categories -->
+    <string name="cat_visitas">Visita Tienda</string>
+    <string name="cat_reportes">Reporte Pedidos</string>
+    <string name="cat_ventas">Ventas Fin de Semana</string>
+    <string name="cat_urgente">Urgente</string>
+    <string name="cat_general">General</string>
+
+    <!-- Notifications -->
+    <string name="reminder_channel_name">Recordatorios de Tareas</string>
+    <string name="reminder_channel_desc">Notificaciones programadas para tareas pendientes</string>
+</resources>
