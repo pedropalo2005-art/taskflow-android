@@ -10,7 +10,8 @@ data class Task(
     var category: String = "General",
     var status: String = "todo", // "todo", "in_progress", "done"
     var dueTimestamp: Long? = null,
-    var createdAt: Long = System.currentTimeMillis()
+    var createdAt: Long = System.currentTimeMillis(),
+    var userPin: String = "1234"
 ) {
     fun toJson(): JSONObject {
         val obj = JSONObject()
@@ -19,6 +20,7 @@ data class Task(
         obj.put("description", description)
         obj.put("category", category)
         obj.put("status", status)
+        obj.put("user_pin", userPin)
         if (dueTimestamp != null) {
             obj.put("due_timestamp", dueTimestamp)
         } else {
@@ -39,7 +41,8 @@ data class Task(
                 dueTimestamp = if (json.has("due_timestamp") && !json.isNull("due_timestamp")) {
                     json.optLong("due_timestamp")
                 } else null,
-                createdAt = json.optLong("created_at", System.currentTimeMillis())
+                createdAt = json.optLong("created_at", System.currentTimeMillis()),
+                userPin = json.optString("user_pin", "1234")
             )
         }
     }

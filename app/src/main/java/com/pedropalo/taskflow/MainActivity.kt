@@ -5,10 +5,12 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -39,10 +41,10 @@ class MainActivity : AppCompatActivity() {
 
     private val allTasks = mutableListOf<Task>()
     private var currentFilterStatus = "todo" // "todo", "in_progress", "done"
+    private var currentPin = "1234"
 
     private var activeDialogBinding: DialogAddTaskBinding? = null
 
-    // Launcher para dictado por voz (Speech-to-Text)
     private val speechRecognizerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -51,17 +53,14 @@ class MainActivity : AppCompatActivity() {
             val spokenText = spokenMatches?.firstOrNull() ?: return@registerForActivityResult
 
             if (activeDialogBinding != null) {
-                // Si el diálogo ya está abierto, añade o reemplaza el texto en el título
                 activeDialogBinding?.etTaskTitle?.setText(spokenText)
                 autoDetectCategory(spokenText, activeDialogBinding!!)
             } else {
-                // Abre el diálogo precargado con lo que la jefa dictó
                 showAddTaskDialog(initialTitle = spokenText)
             }
         }
     }
 
-    // Launcher para permisos de notificaciones (Android 13+)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -76,16 +75,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         localManager = LocalTaskManager(this)
+        currentPin = localManager.getUserPin()
 
         checkPermissions()
+        setupTopBarPin()
         setupTabs()
         setupRecyclerView()
         setupActions()
 
-        // 1. Cargar inmediatamente desde almacenamiento local (0ms de espera)
         loadTasksFromLocal()
-
-        // 2. Sincronizar con Supabase en la nube
         syncTasksFromSupabase()
     }
 
@@ -97,18 +95,61 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupTopBarPin() {
+        binding.tvUserPinBadge.text = "🔒 PIN: $currentPin"
+        binding.tvUserPinBadge.setOnClickListener {
+            showChangePinDialog()
+        }
+    }
+
+    private fun showChangePinDialog() {
+        val input = EditText(this).apply {
+            hint = "Ej: 1234 (4 dígitos)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(currentPin)
+            setSelection(text.length)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Cambiar PIN / Perfil")
+            .setMessage("Cada PIN tiene su propio tablero privado independiente. Si compartes la app, cada persona usa su propio PIN.")
+            .setView(input)
+            .setPositiveButton("Cambiar") { _, _ ->
+                val newPin = input.text.toString().trim()
+                if (newPin.isNotBlank()) {
+                    currentPin = newPin
+                    localManager.setUserPin(currentPin)
+                    binding.tvUserPinBadge.text = "🔒 PIN: $currentPin"
+                    Toast.makeText(this, "Cambiado a perfil PIN $currentPin", Toast.LENGTH_SHORT).show()
+                    loadTasksFromLocal()
+                    syncTasksFromSupabase()
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     private fun setupTabs() {
         binding.tabLayoutKanban.addTab(binding.tabLayoutKanban.newTab().setText("Por Hacer (0)"))
         binding.tabLayoutKanban.addTab(binding.tabLayoutKanban.newTab().setText("En Curso (0)"))
         binding.tabLayoutKanban.addTab(binding.tabLayoutKanban.newTab().setText("Hecho (0)"))
 
+        // Set distinctive tab indicator colors according to selected tab
         binding.tabLayoutKanban.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                currentFilterStatus = when (tab?.position) {
-                    0 -> "todo"
-                    1 -> "in_progress"
-                    2 -> "done"
-                    else -> "todo"
+                when (tab?.position) {
+                    0 -> {
+                        currentFilterStatus = "todo"
+                        binding.tabLayoutKanban.setSelectedTabIndicatorColor(Color.parseColor("#F59E0B"))
+                    }
+                    1 -> {
+                        currentFilterStatus = "in_progress"
+                        binding.tabLayoutKanban.setSelectedTabIndicatorColor(Color.parseColor("#2563EB"))
+                    }
+                    2 -> {
+                        currentFilterStatus = "done"
+                        binding.tabLayoutKanban.setSelectedTabIndicatorColor(Color.parseColor("#10B981"))
+                    }
                 }
                 filterTasksByStatus()
             }
@@ -128,22 +169,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupActions() {
-        // Botón principal de dictado por voz (cabecera)
         binding.btnQuickVoice.setOnClickListener {
             startVoiceRecognition()
         }
 
-        // Mini FAB de micrófono
         binding.fabMic.setOnClickListener {
             startVoiceRecognition()
         }
 
-        // FAB de creación manual
         binding.fabAddTask.setOnClickListener {
             showAddTaskDialog()
         }
 
-        // Swipe to refresh
         binding.swipeRefresh.setOnRefreshListener {
             syncTasksFromSupabase()
         }
@@ -163,7 +200,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadTasksFromLocal() {
-        val cached = localManager.getLocalTasks()
+        val cached = localManager.getLocalTasks(currentPin)
         allTasks.clear()
         allTasks.addAll(cached)
         updateTabBadges()
@@ -175,18 +212,17 @@ class MainActivity : AppCompatActivity() {
         binding.tvSyncStatus.text = "🔄 Sincronizando..."
 
         lifecycleScope.launch {
-            val result = SupabaseClient.getTasks()
+            val result = SupabaseClient.getTasks(currentPin)
             binding.swipeRefresh.isRefreshing = false
 
             result.onSuccess { remoteTasks ->
                 binding.tvSyncStatus.text = "☁️ Supabase Conectado"
                 allTasks.clear()
                 allTasks.addAll(remoteTasks)
-                localManager.saveLocalTasks(remoteTasks)
+                localManager.saveLocalTasks(remoteTasks, currentPin)
                 updateTabBadges()
                 filterTasksByStatus()
 
-                // Reprogramar alarmas pendientes activas
                 for (t in remoteTasks) {
                     if (t.status != "done" && t.dueTimestamp != null && t.dueTimestamp!! > System.currentTimeMillis()) {
                         TaskReminderReceiver.scheduleAlarm(
@@ -200,22 +236,32 @@ class MainActivity : AppCompatActivity() {
                 }
             }.onFailure {
                 binding.tvSyncStatus.text = "📱 Modo Local"
-                Toast.makeText(this@MainActivity, "Sin conexión a Supabase. Usando datos locales.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun filterTasksByStatus() {
-        val filtered = allTasks.filter { it.status == currentFilterStatus }
+        val filtered = allTasks.filter { it.status == currentFilterStatus }.toList()
         taskAdapter.submitList(filtered)
 
         if (filtered.isEmpty()) {
             binding.layoutEmptyState.visibility = View.VISIBLE
-            binding.tvEmptyTitle.text = when (currentFilterStatus) {
-                "todo" -> "No hay tareas por hacer"
-                "in_progress" -> "No hay tareas en curso actualmente"
-                "done" -> "Aún no has completado tareas hoy"
-                else -> "Lista vacía"
+            when (currentFilterStatus) {
+                "todo" -> {
+                    binding.tvEmptyIcon.text = "📋"
+                    binding.tvEmptyTitle.text = "No hay tareas por hacer"
+                    binding.tvEmptySubtitle.text = "Toca el botón + o el micrófono para crear una tarea"
+                }
+                "in_progress" -> {
+                    binding.tvEmptyIcon.text = "⏳"
+                    binding.tvEmptyTitle.text = "No hay tareas en curso"
+                    binding.tvEmptySubtitle.text = "Pasa una tarea de 'Por Hacer' a 'En Curso' con el botón Comenzar"
+                }
+                "done" -> {
+                    binding.tvEmptyIcon.text = "🎉"
+                    binding.tvEmptyTitle.text = "No has completado tareas aún"
+                    binding.tvEmptySubtitle.text = "Cuando finalices una tarea en curso, márcala como hecha"
+                }
             }
         } else {
             binding.layoutEmptyState.visibility = View.GONE
@@ -233,8 +279,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Mueve la tarea en el flujo Kanban:
-     * Por Hacer -> En Curso -> Hecho -> Por Hacer
+     * Mueve instantáneamente la tarea de columna y cambia de pestaña para que el usuario la vea de inmediato.
      */
     private fun advanceTaskStatus(task: Task) {
         val newStatus = when (task.status) {
@@ -244,18 +289,41 @@ class MainActivity : AppCompatActivity() {
             else -> "todo"
         }
 
-        task.status = newStatus
-        localManager.upsertTask(task)
-        updateTabBadges()
-        filterTasksByStatus()
+        // 1. Crear copia con nuevo estado para DiffUtil
+        val updatedTask = task.copy(status = newStatus)
 
-        // Si se completó la tarea, cancela la alarma programada
-        if (newStatus == "done") {
-            TaskReminderReceiver.cancelAlarm(this, task.id)
-            Toast.makeText(this, "¡Tarea completada! 🎉", Toast.LENGTH_SHORT).show()
+        // 2. Actualizar en allTasks
+        val index = allTasks.indexOfFirst { it.id == task.id }
+        if (index != -1) {
+            allTasks[index] = updatedTask
+        } else {
+            allTasks.add(updatedTask)
         }
 
-        // Sincronizar actualización con Supabase
+        // 3. Guardar localmente
+        localManager.saveLocalTasks(allTasks, currentPin)
+        updateTabBadges()
+
+        // 4. Cambiar automáticamente a la pestaña correspondiente para feedback visual inmediato
+        when (newStatus) {
+            "in_progress" -> {
+                binding.tabLayoutKanban.getTabAt(1)?.select()
+                Toast.makeText(this, "Tarea movida a 'En Curso' ⏳", Toast.LENGTH_SHORT).show()
+            }
+            "done" -> {
+                TaskReminderReceiver.cancelAlarm(this, task.id)
+                binding.tabLayoutKanban.getTabAt(2)?.select()
+                Toast.makeText(this, "¡Tarea completada! 🎉", Toast.LENGTH_SHORT).show()
+            }
+            "todo" -> {
+                binding.tabLayoutKanban.getTabAt(0)?.select()
+                Toast.makeText(this, "Tarea reabierta en 'Por Hacer' 📋", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        filterTasksByStatus()
+
+        // 5. Sincronizar en segundo plano con Supabase
         lifecycleScope.launch {
             SupabaseClient.updateTaskStatus(task.id, newStatus)
         }
@@ -268,7 +336,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Eliminar") { _, _ ->
                 TaskReminderReceiver.cancelAlarm(this, task.id)
                 allTasks.removeAll { it.id == task.id }
-                localManager.removeTask(task.id)
+                localManager.saveLocalTasks(allTasks, currentPin)
                 updateTabBadges()
                 filterTasksByStatus()
 
@@ -293,7 +361,6 @@ class MainActivity : AppCompatActivity() {
         val calendar = Calendar.getInstance()
         val format = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale("es", "HN"))
 
-        // Selección de Fecha y Hora para el recordatorio
         dialogBinding.btnPickDateTime.setOnClickListener {
             DatePickerDialog(
                 this,
@@ -331,7 +398,6 @@ class MainActivity : AppCompatActivity() {
             dialogBinding.btnClearDateTime.visibility = View.GONE
         }
 
-        // Dictado por voz desde adentro del diálogo
         dialogBinding.btnDialogMic.setOnClickListener {
             startVoiceRecognition()
         }
@@ -359,16 +425,18 @@ class MainActivity : AppCompatActivity() {
                 description = desc,
                 category = selectedCategory,
                 status = "todo",
-                dueTimestamp = selectedTimestamp
+                dueTimestamp = selectedTimestamp,
+                userPin = currentPin
             )
 
-            // Guardar localmente
             allTasks.add(0, newTask)
-            localManager.upsertTask(newTask)
+            localManager.saveLocalTasks(allTasks, currentPin)
             updateTabBadges()
+
+            // Asegurarse de que esté en la pestaña Por Hacer para ver la nueva tarea creada
+            binding.tabLayoutKanban.getTabAt(0)?.select()
             filterTasksByStatus()
 
-            // Programar alarma de notificación si tiene fecha futura
             if (selectedTimestamp != null && selectedTimestamp!! > System.currentTimeMillis()) {
                 TaskReminderReceiver.scheduleAlarm(
                     this,
@@ -377,12 +445,11 @@ class MainActivity : AppCompatActivity() {
                     newTask.category,
                     selectedTimestamp!!
                 )
-                Toast.makeText(this, "Tarea guardada con recordatorio ⏰", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Tarea guardada con alarma ⏰", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Tarea guardada", Toast.LENGTH_SHORT).show()
             }
 
-            // Sincronizar en Supabase
             lifecycleScope.launch {
                 SupabaseClient.insertTask(newTask)
             }
@@ -403,7 +470,6 @@ class MainActivity : AppCompatActivity() {
         dialogBinding.etTaskTitle.setText(task.title)
         dialogBinding.etTaskDescription.setText(task.description)
 
-        // Marcar chip de categoría actual
         when {
             task.category.contains("Visita", ignoreCase = true) -> dialogBinding.chipVisita.isChecked = true
             task.category.contains("Reporte", ignoreCase = true) -> dialogBinding.chipReporte.isChecked = true
@@ -473,24 +539,31 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            task.title = title
-            task.description = dialogBinding.etTaskDescription.text?.toString()?.trim() ?: ""
-            task.category = getSelectedCategoryFromChips(dialogBinding)
-            task.dueTimestamp = selectedTimestamp
+            val updatedTask = task.copy(
+                title = title,
+                description = dialogBinding.etTaskDescription.text?.toString()?.trim() ?: "",
+                category = getSelectedCategoryFromChips(dialogBinding),
+                dueTimestamp = selectedTimestamp,
+                userPin = currentPin
+            )
 
-            localManager.upsertTask(task)
+            val index = allTasks.indexOfFirst { it.id == task.id }
+            if (index != -1) {
+                allTasks[index] = updatedTask
+            }
+
+            localManager.saveLocalTasks(allTasks, currentPin)
             updateTabBadges()
             filterTasksByStatus()
 
-            // Actualizar alarma
             if (selectedTimestamp != null && selectedTimestamp!! > System.currentTimeMillis()) {
-                TaskReminderReceiver.scheduleAlarm(this, task.id, task.title, task.category, selectedTimestamp!!)
+                TaskReminderReceiver.scheduleAlarm(this, updatedTask.id, updatedTask.title, updatedTask.category, selectedTimestamp!!)
             } else {
-                TaskReminderReceiver.cancelAlarm(this, task.id)
+                TaskReminderReceiver.cancelAlarm(this, updatedTask.id)
             }
 
             lifecycleScope.launch {
-                SupabaseClient.insertTask(task)
+                SupabaseClient.insertTask(updatedTask)
             }
 
             dialog.dismiss()
@@ -506,9 +579,6 @@ class MainActivity : AppCompatActivity() {
         return chip?.text?.toString() ?: "General"
     }
 
-    /**
-     * Detección inteligente por voz: si la jefa dice "tienda", selecciona categoría de visita automáticamente.
-     */
     private fun autoDetectCategory(text: String, binding: DialogAddTaskBinding) {
         val lower = text.lowercase(Locale.ROOT)
         when {

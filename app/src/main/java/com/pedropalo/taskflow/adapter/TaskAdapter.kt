@@ -56,12 +56,14 @@ class TaskAdapter(
             binding.tvCategoryChip.text = task.category
             applyCategoryStyle(task.category)
 
+            // Dynamic Step / Status Visual Theme (Distinct Colors for each Kanban step)
+            applyStatusVisualTheme(task.status)
+
             // Due Date & Time
             if (task.dueTimestamp != null && task.dueTimestamp!! > 0) {
                 binding.layoutDueTime.visibility = View.VISIBLE
                 binding.tvDueDate.text = dateFormat.format(Date(task.dueTimestamp!!))
 
-                // Highlight if overdue and not done
                 val isOverdue = task.dueTimestamp!! < System.currentTimeMillis() && task.status != "done"
                 if (isOverdue) {
                     binding.tvDueDate.setTextColor(ContextCompat.getColor(context, R.color.danger))
@@ -70,27 +72,6 @@ class TaskAdapter(
                 }
             } else {
                 binding.layoutDueTime.visibility = View.GONE
-            }
-
-            // Status Advance Button
-            when (task.status) {
-                "todo" -> {
-                    binding.btnAdvanceStatus.text = "Comenzar ⏳"
-                    binding.btnAdvanceStatus.icon = ContextCompat.getDrawable(context, R.drawable.ic_arrow_forward)
-                    binding.btnAdvanceStatus.iconTint = ColorStateList.valueOf(Color.parseColor("#1D4ED8"))
-                    binding.btnAdvanceStatus.setTextColor(Color.parseColor("#1D4ED8"))
-                }
-                "in_progress" -> {
-                    binding.btnAdvanceStatus.text = "Completar ✅"
-                    binding.btnAdvanceStatus.icon = ContextCompat.getDrawable(context, R.drawable.ic_check)
-                    binding.btnAdvanceStatus.iconTint = ColorStateList.valueOf(Color.parseColor("#047857"))
-                    binding.btnAdvanceStatus.setTextColor(Color.parseColor("#047857"))
-                }
-                "done" -> {
-                    binding.btnAdvanceStatus.text = "Reabrir ↩️"
-                    binding.btnAdvanceStatus.icon = null
-                    binding.btnAdvanceStatus.setTextColor(Color.parseColor("#64748B"))
-                }
             }
 
             // Click Handlers
@@ -104,6 +85,53 @@ class TaskAdapter(
 
             binding.root.setOnClickListener {
                 onItemClick(task)
+            }
+        }
+
+        private fun applyStatusVisualTheme(status: String) {
+            val context = binding.root.context
+            when (status) {
+                "todo" -> {
+                    // Warm Amber/Yellow theme for "Por Hacer"
+                    binding.viewStatusAccent.setBackgroundColor(Color.parseColor("#F59E0B"))
+                    binding.cardTask.strokeColor = Color.parseColor("#FDE68A")
+                    binding.tvStatusBadge.text = "📋 Por Hacer"
+                    binding.tvStatusBadge.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FEF3C7"))
+                    binding.tvStatusBadge.setTextColor(Color.parseColor("#B45309"))
+
+                    binding.btnAdvanceStatus.text = "Comenzar ⏳"
+                    binding.btnAdvanceStatus.icon = ContextCompat.getDrawable(context, R.drawable.ic_arrow_forward)
+                    binding.btnAdvanceStatus.iconTint = ColorStateList.valueOf(Color.parseColor("#1D4ED8"))
+                    binding.btnAdvanceStatus.setTextColor(Color.parseColor("#1D4ED8"))
+                    binding.btnAdvanceStatus.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#EFF6FF"))
+                }
+                "in_progress" -> {
+                    // High-energy Electric Blue theme for "En Curso"
+                    binding.viewStatusAccent.setBackgroundColor(Color.parseColor("#2563EB"))
+                    binding.cardTask.strokeColor = Color.parseColor("#BFDBFE")
+                    binding.tvStatusBadge.text = "⏳ En Curso"
+                    binding.tvStatusBadge.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#DBEAFE"))
+                    binding.tvStatusBadge.setTextColor(Color.parseColor("#1D4ED8"))
+
+                    binding.btnAdvanceStatus.text = "Completar ✅"
+                    binding.btnAdvanceStatus.icon = ContextCompat.getDrawable(context, R.drawable.ic_check)
+                    binding.btnAdvanceStatus.iconTint = ColorStateList.valueOf(Color.parseColor("#047857"))
+                    binding.btnAdvanceStatus.setTextColor(Color.parseColor("#047857"))
+                    binding.btnAdvanceStatus.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#ECFDF5"))
+                }
+                "done" -> {
+                    // Emerald Green theme for "Hecho"
+                    binding.viewStatusAccent.setBackgroundColor(Color.parseColor("#10B981"))
+                    binding.cardTask.strokeColor = Color.parseColor("#A7F3D0")
+                    binding.tvStatusBadge.text = "✅ Completado"
+                    binding.tvStatusBadge.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#D1FAE5"))
+                    binding.tvStatusBadge.setTextColor(Color.parseColor("#047857"))
+
+                    binding.btnAdvanceStatus.text = "Reabrir ↩️"
+                    binding.btnAdvanceStatus.icon = null
+                    binding.btnAdvanceStatus.setTextColor(Color.parseColor("#64748B"))
+                    binding.btnAdvanceStatus.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F1F5F9"))
+                }
             }
         }
 
@@ -126,7 +154,12 @@ class TaskAdapter(
         }
 
         override fun areContentsTheSame(oldItem: Task, newItem: Task): Boolean {
-            return oldItem == newItem
+            return oldItem.status == newItem.status &&
+                   oldItem.title == newItem.title &&
+                   oldItem.description == newItem.description &&
+                   oldItem.category == newItem.category &&
+                   oldItem.dueTimestamp == newItem.dueTimestamp &&
+                   oldItem.userPin == newItem.userPin
         }
     }
 }

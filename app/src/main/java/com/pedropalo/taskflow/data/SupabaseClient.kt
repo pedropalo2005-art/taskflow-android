@@ -13,7 +13,6 @@ import java.util.concurrent.TimeUnit
 
 object SupabaseClient {
 
-    // Configuración de Supabase
     private const val SUPABASE_URL = "https://cdqdpnntmiirvhycufcp.supabase.co"
     private const val ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkcWRwbm50bWlpcnZoeWN1ZmNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1ODA2OTAsImV4cCI6MjExMDE1NjY5MH0.TfU_T25peO81chK6rGxjWltkgp2Od7oKwuqYNfL6dXs"
 
@@ -26,12 +25,13 @@ object SupabaseClient {
         .build()
 
     /**
-     * Obtiene todas las tareas desde Supabase ordenadas por fecha de creación descendente.
+     * Obtiene las tareas aisladas por PIN de usuario desde Supabase.
      */
-    suspend fun getTasks(): Result<List<Task>> = withContext(Dispatchers.IO) {
+    suspend fun getTasks(userPin: String = "1234"): Result<List<Task>> = withContext(Dispatchers.IO) {
         try {
+            val url = "$SUPABASE_URL/rest/v1/tasks?user_pin=eq.$userPin&order=created_at.desc"
             val request = Request.Builder()
-                .url("$SUPABASE_URL/rest/v1/tasks?select=*&order=created_at.desc")
+                .url(url)
                 .addHeader("apikey", ANON_KEY)
                 .addHeader("Authorization", "Bearer $ANON_KEY")
                 .get()
@@ -56,7 +56,7 @@ object SupabaseClient {
     }
 
     /**
-     * Inserta una nueva tarea en Supabase.
+     * Inserta o actualiza una tarea en Supabase.
      */
     suspend fun insertTask(task: Task): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
@@ -81,7 +81,7 @@ object SupabaseClient {
     }
 
     /**
-     * Actualiza el estado (Kanban: todo -> in_progress -> done) de una tarea.
+     * Actualiza el estado Kanban (todo -> in_progress -> done).
      */
     suspend fun updateTaskStatus(taskId: String, newStatus: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
