@@ -216,7 +216,7 @@ class MainActivity : AppCompatActivity() {
             binding.swipeRefresh.isRefreshing = false
 
             result.onSuccess { remoteTasks ->
-                binding.tvSyncStatus.text = "☁️ Supabase Conectado"
+                binding.tvSyncStatus.text = "☁️ En línea"
                 allTasks.clear()
                 allTasks.addAll(remoteTasks)
                 localManager.saveLocalTasks(remoteTasks, currentPin)

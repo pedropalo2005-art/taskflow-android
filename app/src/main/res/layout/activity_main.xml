@@ -75,7 +75,7 @@
                     android:backgroundTint="#312E81"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="5dp"
-                    android:text="☁️ Supabase"
+                    android:text="☁️ En línea"
                     android:textColor="#E0E7FF"
                     android:textSize="11sp"
                     android:textStyle="bold" />
